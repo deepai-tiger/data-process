@@ -160,6 +160,34 @@ def test_an_unknown_engine_is_rejected():
         build_recognizer("magic")
 
 
+def test_loading_pix2tex_does_not_silence_the_rest_of_the_run(monkeypatch):
+    import logging
+    import sys
+    import types
+
+    module = types.ModuleType("pix2tex.cli")
+
+    class LatexOCR:
+        def __init__(self):
+            logging.getLogger().setLevel(logging.FATAL)  # what pix2tex really does
+
+        def __call__(self, image):
+            return "x"
+
+    module.LatexOCR = LatexOCR
+    monkeypatch.setitem(sys.modules, "pix2tex", types.ModuleType("pix2tex"))
+    monkeypatch.setitem(sys.modules, "pix2tex.cli", module)
+
+    root = logging.getLogger()
+    original = root.level
+    try:
+        root.setLevel(logging.INFO)
+        build_recognizer("pix2tex")
+        assert root.level == logging.INFO
+    finally:
+        root.setLevel(original)
+
+
 # ----------------------------------------------------- stitching the results
 
 

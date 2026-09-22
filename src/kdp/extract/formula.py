@@ -17,6 +17,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -24,6 +25,9 @@ from typing import Protocol
 logger = logging.getLogger(__name__)
 
 _MAX_LATEX_CHARS = 4000
+#: recognizing one equation should take a second or two; anything slower is
+#: worth naming in the log, because it is usually a mis-detected region
+_SLOW_REGION_S = 3.0
 
 
 @dataclass
@@ -61,7 +65,15 @@ class Pix2TexRecognizer:
             raise RuntimeError(
                 "pix2tex is not installed; `pip install pix2tex` or set pdf.formula_engine=none"
             ) from exc
-        self._model = LatexOCR()
+        # LatexOCR's constructor sets the *root* logger to FATAL. Since the
+        # model is built lazily on the first equation, leaving that in place
+        # silences the rest of the run from whichever page that happens to be.
+        root = logging.getLogger()
+        level = root.level
+        try:
+            self._model = LatexOCR()
+        finally:
+            root.setLevel(level)
 
     def recognize(self, image) -> tuple[str, float | None]:
         latex = self._model(image)
@@ -93,7 +105,13 @@ def recognize_region(
         if strip_equation_number:
             part, part_tag = _split_equation_number(part)
             tag = tag or part_tag
+        started = time.perf_counter()
         latex, _ = recognizer.recognize(part)
+        elapsed = time.perf_counter() - started
+        if elapsed > _SLOW_REGION_S:
+            logger.debug(
+                "%s took %.1fs on a %dx%d crop", recognizer.name, elapsed, part.width, part.height
+            )
         latex = postprocess_latex(latex, collapse_letter_runs=collapse_letter_runs)
         if latex and is_plausible_latex(latex):
             latex_parts.append(latex)
