@@ -6,6 +6,7 @@ import pytest
 
 from kdp.extract.formula import (
     NoopRecognizer,
+    _as_equation_number,
     _collapse_letter_runs,
     _column_islands,
     _split_stacked_equations,
@@ -226,6 +227,27 @@ def test_implausible_parts_are_dropped_from_the_stack():
 
 def test_a_region_nobody_can_read_yields_nothing():
     assert recognize_region(strip_image([(10, 40)]), FakeRecognizer("")) is None
+
+
+@pytest.mark.parametrize("raw", ["(1-14)", r"(\,1-20)", "[2.3]", " ( 3a ) "])
+def test_an_equation_number_on_its_own_line_is_recognized_as_a_label(raw):
+    assert _as_equation_number(raw) is not None
+
+
+@pytest.mark.parametrize("raw", ["(x)", "(a+b)", r"\frac{1}{2}", "(1-14) = 0"])
+def test_real_math_is_not_mistaken_for_a_label(raw):
+    assert _as_equation_number(raw) is None
+
+
+def test_a_trailing_number_line_becomes_the_tag():
+    image = strip_image([(10, 40), (90, 120)])
+    result = recognize_region(image, FakeRecognizer("a = b", "(1-20)"))
+    assert result.latex == r"a = b \tag{1-20}"
+    assert result.parts == 1
+
+
+def test_a_region_holding_only_an_equation_number_is_dropped():
+    assert recognize_region(strip_image([(10, 40)]), FakeRecognizer("(1-14)")) is None
 
 
 def test_splitting_can_be_switched_off():

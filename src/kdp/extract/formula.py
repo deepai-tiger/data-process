@@ -113,7 +113,14 @@ def recognize_region(
                 "%s took %.1fs on a %dx%d crop", recognizer.name, elapsed, part.width, part.height
             )
         latex = postprocess_latex(latex, collapse_letter_runs=collapse_letter_runs)
-        if latex and is_plausible_latex(latex):
+        if not latex:
+            continue
+        number = _as_equation_number(latex)
+        if number is not None:
+            # the number sits on its own line rather than beside the equation
+            tag = tag or number
+            continue
+        if is_plausible_latex(latex):
             latex_parts.append(latex)
     if not latex_parts:
         return None
@@ -126,6 +133,22 @@ def recognize_region(
     if tag:
         latex = f"{latex} \\tag{{{tag}}}"
     return FormulaResult(latex=latex, tag=tag, engine=recognizer.name, parts=len(latex_parts))
+
+
+_LATEX_SPACE_RE = re.compile(r"\\[,;:!]|\\q?quad|\\ |~|\s+")
+_NUMBER_ONLY_RE = re.compile(r"[\(\[]([0-9][0-9A-Za-z.\-\u2013]*)[\)\]]")
+
+
+def _as_equation_number(latex: str) -> str | None:
+    """``(1-14)`` alone is a label, not an equation.
+
+    Equation numbers are usually to the right of the equation and get cropped
+    off before recognition, but in a stacked region they sometimes land on a
+    line of their own, where they would otherwise become a junk formula.
+    """
+    bare = _LATEX_SPACE_RE.sub("", latex.strip())
+    match = _NUMBER_ONLY_RE.fullmatch(bare)
+    return match.group(1) if match else None
 
 
 def postprocess_latex(latex: str, collapse_letter_runs: bool = True) -> str:
