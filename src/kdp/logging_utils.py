@@ -18,6 +18,24 @@ _NOISY_LOGGERS = (
     "timm",
 )
 
+#: packages that log on the root logger instead of one of their own
+_NOISY_ROOT_CALLERS = ("pix2tex",)
+
+
+class ThirdPartyRootNoiseFilter(logging.Filter):
+    """Drop stray records third-party code writes straight to the root logger.
+
+    pix2tex calls ``logging.info(ratio, size, size)`` per recognised crop. The
+    trailing values are not format arguments, so formatting the record raises
+    and the handler prints a traceback in its place - once per equation. The
+    root logger carries our own output too, so these cannot be silenced by
+    level; they are matched by the file that emitted them instead.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        pathname = record.pathname or ""
+        return not any(pkg in pathname for pkg in _NOISY_ROOT_CALLERS)
+
 
 def setup_logging(level: str = "INFO", quiet_dependencies: bool = True) -> None:
     # force=True: importing docling/transformers already installs a root
@@ -31,6 +49,8 @@ def setup_logging(level: str = "INFO", quiet_dependencies: bool = True) -> None:
     )
     if not quiet_dependencies:
         return
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(ThirdPartyRootNoiseFilter())
     for name in _NOISY_LOGGERS:
         logging.getLogger(name).setLevel(logging.ERROR)
     # Tesseract's orientation detection gives up on near-blank pages ("Too few
