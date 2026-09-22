@@ -148,12 +148,17 @@ def _respace_table_cells(block: Block, spacer, report: SpacingReport) -> None:
                 is_header=raw["is_header"],
             )
         )
-    if not changed:
-        return
+
     caption = block.meta.get("caption")
     if caption and needs_spacing_fix(caption):
-        block.meta["caption"] = fix_spacing(caption, spacer)
-        caption = block.meta["caption"]
+        fixed = fix_spacing(caption, spacer)
+        report.blocks_processed += 1
+        if fixed and fixed != caption:
+            block.meta["caption"] = caption = fixed
+            changed = True
+
+    if not changed:
+        return
     grid = TableGrid(
         cells=cells,
         num_rows=block.meta.get("num_rows", 0),
