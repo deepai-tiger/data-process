@@ -82,7 +82,7 @@ def run_extract(config: Config, inputs: Sequence[Path] | None = None, force: boo
     return summary
 
 
-def run_clean(config: Config, force: bool = False) -> list[Document]:
+def run_clean(config: Config) -> list[Document]:
     docjson_files = sorted(config.paths.docjson_dir.glob("*.json"))
     if not docjson_files:
         raise FileNotFoundError(
@@ -138,7 +138,7 @@ class PipelineResult:
 
 def run_pipeline(config: Config, inputs: Sequence[Path] | None = None, force: bool = False) -> PipelineResult:
     extract = run_extract(config, inputs=inputs, force=force)
-    documents = run_clean(config, force=force)
+    documents = run_clean(config)
     stats = run_build(config, documents)
     return PipelineResult(extract=extract, documents=documents, build=stats)
 
