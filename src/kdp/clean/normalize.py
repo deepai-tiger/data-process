@@ -128,6 +128,8 @@ def normalize_document(doc: Document, cfg: NormalizeConfig) -> tuple[Document, N
             if block.latex:
                 block.latex = _normalize_latex(block.latex, cfg)
                 block.text = block.latex
+            if block.kind is BlockKind.TABLE:
+                _drop_noisy_caption(block)
             continue
         keep_newlines = block.kind is BlockKind.CODE
         block.text = normalize_text(block.text, cfg, keep_newlines=keep_newlines)
@@ -158,6 +160,20 @@ def _normalize_latex(latex: str, cfg: NormalizeConfig) -> str:
     latex = _PRIVATE_USE.sub("", latex)
     latex = re.sub(r"[ \t]{2,}", " ", latex)
     return re.sub(r"\n{3,}", "\n\n", latex).strip()
+
+
+def _drop_noisy_caption(block: Block) -> None:
+    """Remove a table caption that OCR turned into gibberish."""
+    from .quality import is_ocr_noise
+
+    caption = (block.meta.get("caption") or "").strip()
+    if not caption or not is_ocr_noise(caption):
+        return
+    block.meta["caption_rejected"] = caption
+    block.meta["caption"] = None
+    if block.latex:
+        block.latex = re.sub(r"\n?\\caption\{[^\n]*\}", "", block.latex)
+        block.text = block.latex
 
 
 def _page_signature(text: str) -> str:

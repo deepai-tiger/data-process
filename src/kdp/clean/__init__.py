@@ -48,12 +48,17 @@ class CleanResult:
 
 
 def clean_document(doc: Document, config: Config) -> CleanResult:
-    """Run the per-document cleaning stages in order."""
+    """Run the per-document cleaning stages in order.
+
+    Quality filtering happens *before* spacing repair on purpose: OCR noise
+    ("아 아 애 아 애") is easiest to recognize while the syllables are still
+    separated, and re-spacing would disguise it as ordinary words.
+    """
+    doc, normalized = normalize_document(doc, config.normalize)
+    doc, quality = filter_document(doc, config.quality)
     doc, spacing = respace_document(
         doc, engine=config.normalize.spacing_engine, only_ocr=config.normalize.spacing_ocr_only
     )
-    doc, normalized = normalize_document(doc, config.normalize)
-    doc, quality = filter_document(doc, config.quality)
     doc, pii = mask_document(doc, config.pii)
 
     reports = {
