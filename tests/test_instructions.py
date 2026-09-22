@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from kdp.config import SftConfig
-from kdp.dataset.instructions import build_sft_samples
+from kdp.dataset.instructions import _definition_prompt, _ran_particle, build_sft_samples
 
 from factories import document, equation, heading, para, table
 
@@ -17,6 +17,19 @@ PROSE = (
 
 def only(task: str) -> SftConfig:
     return SftConfig(tasks=[task])
+
+
+@pytest.fixture
+def rng():
+    import random
+
+    return random.Random(0)
+
+
+@pytest.fixture
+def kiwi():
+    """Definition synthesis needs morphology to find the term being defined."""
+    return pytest.importorskip("kiwipiepy")
 
 
 def paragraphs(count: int, length: int = 2):
@@ -124,7 +137,7 @@ def test_a_heading_can_serve_as_equation_context():
 # ------------------------------------------------------- definition synthesis
 
 
-def test_a_definition_sentence_becomes_a_question():
+def test_a_definition_sentence_becomes_a_question(kiwi):
     text = (
         "가속도란 단위 시간당 속도의 변화량을 나타내는 물리량이다. "
         "국제단위계에서는 초당 미터매초로 나타낸다. 방향을 가지는 벡터량이다."
@@ -135,7 +148,7 @@ def test_a_definition_sentence_becomes_a_question():
     assert samples[0].output.startswith("가속도란 단위 시간당")
 
 
-def test_the_same_term_is_only_asked_about_once():
+def test_the_same_term_is_only_asked_about_once(kiwi):
     text = (
         "가속도란 단위 시간당 속도의 변화량을 나타내는 물리량이다. "
         "국제단위계에서는 초당 미터매초로 나타낸다. 방향을 가지는 벡터량이다."
@@ -144,9 +157,62 @@ def test_the_same_term_is_only_asked_about_once():
     assert len(build_sft_samples(doc, only("qa_definition"))) == 1
 
 
-def test_a_narrative_paragraph_yields_no_definition():
+def test_a_narrative_paragraph_yields_no_definition(kiwi):
     doc = document(para("그는 아침 일찍 일어나 창문을 열고 바깥 풍경을 바라보았다. 날씨가 맑았다."))
     assert build_sft_samples(doc, only("qa_definition")) == []
+
+
+def test_a_word_split_by_its_own_topic_marker_is_not_asked_about(kiwi):
+    # "석탄 또는" would otherwise be read as the term "석탄 또" plus a marker
+    text = (
+        "석탄 또는 탄소화합물이 탈 때 생기는 일산화탄소가 숨길을 통하여 몸안에 "
+        "들어가 중독을 일으키는것이다. 환기가 되지 않는 방에서 자주 일어난다."
+    )
+    assert build_sft_samples(document(para(text)), only("qa_definition")) == []
+
+
+def test_a_sentence_that_merely_opens_with_a_topic_is_not_a_definition(kiwi):
+    text = (
+        "여기서 한 가지 주의해야 할 것은 준비운동을 충분히 해야 한다는 점이다. "
+        "그렇지 않으면 근육이 다치기 쉽다고 한다."
+    )
+    assert build_sft_samples(document(para(text)), only("qa_definition")) == []
+
+
+@pytest.mark.parametrize(
+    "term,expected",
+    [
+        ("가속도", "란"),  # ends in a vowel
+        ("운동축", "이란"),  # ends in a consonant
+        ("캐쉬변수", "란"),
+        ("유니코드", "란"),
+    ],
+)
+def test_the_question_particle_follows_the_final_consonant(term, expected):
+    assert _ran_particle(term) == expected
+
+
+@pytest.mark.parametrize("term", ["QTextStream", "Graphics View", "UDP", "index"])
+def test_a_latin_term_avoids_the_particle_altogether(term, rng):
+    # whether "View" takes 이란 or 란 depends on how it is read aloud
+    assert _ran_particle(term) is None
+    assert _definition_prompt(term, rng) == f"{term}에 대하여 설명하시오."
+
+
+def test_without_an_analyzer_the_task_is_skipped_rather_than_guessed(monkeypatch):
+    monkeypatch.setattr("kdp.dataset.instructions._analyzer", lambda: None)
+    text = "가속도란 단위 시간당 속도의 변화량을 나타내는 물리량이다. 방향을 가지는 벡터량이다."
+    assert build_sft_samples(document(para(text)), only("qa_definition")) == []
+
+
+def test_a_multi_word_term_is_still_accepted(kiwi):
+    text = (
+        "절삭 운동축은 공구와 가공품 사이의 상대운동을 규정하는 기준축을 말한다. "
+        "직선절삭운동과 회전절삭운동에서 서로 다르게 주어진다."
+    )
+    samples = build_sft_samples(document(para(text)), only("qa_definition"))
+    assert len(samples) == 1
+    assert "절삭 운동축" in samples[0].instruction
 
 
 # ----------------------------------------------------------------- the driver

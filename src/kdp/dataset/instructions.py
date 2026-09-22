@@ -16,14 +16,17 @@ Five task families are generated:
 
 from __future__ import annotations
 
+import logging
 import random
 import re
 from dataclasses import dataclass, field
-from typing import Iterable, Iterator, Sequence
+from typing import Any, Iterable, Iterator, Sequence
 
 from ..config import SftConfig
 from ..extract.latex_table import TableCell, TableGrid, grid_to_plain_text
 from ..schema import Block, BlockKind, Document, render_block
+
+logger = logging.getLogger(__name__)
 
 _TITLE_PROMPTS = (
     "다음 글의 내용을 가장 잘 나타내는 제목을 한국어로 작성하시오.",
@@ -42,18 +45,104 @@ _EQUATION_PROMPTS = (
     "다음 설명에 해당하는 수식을 LaTeX 형식으로 작성하시오.",
     "아래 문맥에서 제시된 수식을 LaTeX 코드로 표현하시오.",
 )
-_QA_PROMPT_TEMPLATES = (
-    "{term}이란 무엇인가?",
-    "{term}에 대하여 설명하시오.",
-)
+_QA_DESCRIBE_PROMPT = "{term}에 대하여 설명하시오."
+_QA_WHAT_IS_PROMPT = "{term}{particle} 무엇인가?"
 
-#: "X란 ...이다" / "X는 ...을 말한다" style definition sentences
-_DEFINITION_RE = re.compile(
-    r"^\s*(?P<term>[\uac00-\ud7a3A-Za-z0-9()\u00b7\-/ ]{2,40}?)"
-    r"(?:이란|란|이라고 하는것은|은|는)\s+"
-    r"(?P<body>.{20,}?(?:이다|입니다|라고 한다|라고 부른다|말한다|한다)\.)\s*$"
-)
+#: "...이다" / "...라고 한다" - a sentence that asserts what something is
+_DEFINITION_END_RE = re.compile(r"(?:이다|입니다|라고 한다|라고 부른다|말한다|한다)\.\s*$")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+
+#: Tags a definiendum may be made of: a noun phrase and nothing else. Matching
+#: the topic markers 은/는 as text instead cannot tell them apart from the same
+#: syllables inside a word - "석탄 또는 ..." reads as the term "석탄 또" plus
+#: "는" - nor from any sentence that merely opens with a topic, which is how
+#: "체육을 전문으로 하에 대하여 설명하시오" gets asked.
+_TERM_TAGS = frozenset({"NNG", "NNP", "SL", "SH", "SN", "XSN", "XPN"})
+#: a term needs a head noun, so a bare number or a stray letter is not one
+_TERM_HEAD_TAGS = frozenset({"NNG", "NNP", "SL", "SH"})
+_MAX_TERM_CHARS = 30
+#: the definition itself has to say something
+_MIN_DEFINITION_CHARS = 20
+
+
+def _ran_particle(term: str) -> str | None:
+    """``이란`` after a final consonant, ``란`` after a vowel.
+
+    The alternation is decided by the last syllable, which only works out for
+    a Hangul ending: after "Graphics View" the right form depends on how the
+    name is read aloud, so those terms get the prompt that needs no particle.
+    """
+    last = term.strip()[-1:]
+    if not ("\uac00" <= last <= "\ud7a3"):
+        return None
+    return "이란" if (ord(last) - 0xAC00) % 28 else "란"
+
+
+def _definition_prompt(term: str, rng: random.Random) -> str:
+    particle = _ran_particle(term)
+    describe = _QA_DESCRIBE_PROMPT.format(term=term)
+    if particle is None:
+        return describe
+    return rng.choice((_QA_WHAT_IS_PROMPT.format(term=term, particle=particle), describe))
+
+
+_ANALYZER: Any = None
+
+
+def _analyzer():
+    """Kiwi, or ``None`` when it is not installed.
+
+    Telling a definition apart from a sentence that merely opens with a topic
+    needs morphology, so without Kiwi the task is skipped rather than filled
+    with questions about sentence fragments.
+    """
+    global _ANALYZER
+    if _ANALYZER is None:
+        try:
+            from kiwipiepy import Kiwi
+        except ImportError:  # pragma: no cover - optional dependency
+            logger.warning(
+                "kiwipiepy is not installed; skipping the qa_definition task "
+                "(`pip install kiwipiepy` to enable it)"
+            )
+            _ANALYZER = False
+        else:
+            _ANALYZER = Kiwi()
+    return _ANALYZER or None
+
+
+def _is_definition_marker(tokens: Sequence[Any], index: int) -> bool:
+    """Whether the token at ``index`` introduces a definition.
+
+    Either a topic particle (``운동축은``) or the copula that carries the
+    definition marker 란 (``가속도란``, analysed as 가속도 + 이/VCP + 란/ETM).
+    """
+    token = tokens[index]
+    if token.tag == "JX":
+        return True
+    following = tokens[index + 1] if index + 1 < len(tokens) else None
+    return token.tag == "VCP" and following is not None and following.tag == "ETM"
+
+
+def _definiendum(sentence: str, analyzer) -> str | None:
+    """The term a sentence defines, or ``None`` if it defines nothing.
+
+    Only the first marker is considered: the topic of a definition comes at
+    the front, so a marker further in belongs to a subordinate clause.
+    """
+    tokens = analyzer.tokenize(sentence)
+    for index, token in enumerate(tokens):
+        if not _is_definition_marker(tokens, index):
+            continue
+        head = tokens[:index]
+        if not head:
+            return None
+        tags = {t.tag for t in head}
+        if not tags <= _TERM_TAGS or not tags & _TERM_HEAD_TAGS:
+            return None
+        term = sentence[head[0].start : head[-1].end].strip()
+        return term if 2 <= len(term) <= _MAX_TERM_CHARS else None
+    return None
 
 
 @dataclass
@@ -91,7 +180,7 @@ def build_sft_samples(doc: Document, cfg: SftConfig) -> list[SftSample]:
         elif task == "equation_to_latex":
             samples.extend(_equation_samples(doc, rng))
         elif task == "qa_definition":
-            samples.extend(_definition_samples(doc, rng))
+            samples.extend(_definition_samples(doc, rng, _analyzer()))
 
     rng.shuffle(samples)
     return samples[: cfg.max_samples_per_doc]
@@ -263,27 +352,31 @@ def _preceding_sentence(blocks: Sequence[Block], index: int) -> str | None:
     return None
 
 
-def _definition_samples(doc: Document, rng: random.Random) -> list[SftSample]:
+def _definition_samples(doc: Document, rng: random.Random, analyzer) -> list[SftSample]:
+    if analyzer is None:
+        return []
     samples: list[SftSample] = []
     seen: set[str] = set()
     for block in doc.blocks:
-        if block.kind is not BlockKind.PARAGRAPH:
+        if block.kind is not BlockKind.PARAGRAPH or len(block.text) < 60:
             continue
         sentences = [s.strip() for s in _SENTENCE_RE.split(block.text.strip()) if s.strip()]
         if not sentences:
             continue
-        match = _DEFINITION_RE.match(sentences[0])
-        if not match:
+        opening = sentences[0]
+        if not _DEFINITION_END_RE.search(opening):
             continue
-        term = match.group("term").strip()
-        if len(term) < 2 or term in seen or len(block.text) < 60:
+        term = _definiendum(opening, analyzer)
+        if term is None or term in seen:
+            continue
+        if len(opening) - len(term) < _MIN_DEFINITION_CHARS:
             continue
         seen.add(term)
         answer = " ".join(sentences[: min(3, len(sentences))])
         samples.append(
             SftSample(
                 task="qa_definition",
-                instruction=rng.choice(_QA_PROMPT_TEMPLATES).format(term=term),
+                instruction=_definition_prompt(term, rng),
                 output=answer,
                 doc_id=doc.doc_id,
                 pages=[block.page] if block.page else [],
