@@ -133,14 +133,21 @@ def _iter_sections(doc: Document) -> Iterator[_Section]:
         yield current
 
 
+#: a title-generation prompt is truncated rather than dropped when the section
+#: is long, so book-sized sections still produce samples
+_MAX_TITLE_INPUT_CHARS = 6000
+
+
 def _title_samples(doc: Document, sections: Sequence[_Section], rng: random.Random) -> list[SftSample]:
     samples: list[SftSample] = []
     for section in sections:
         if not section.heading or len(section.heading) < 4:
             continue
         body = section.body
-        if len(body) < 300 or len(body) > 6000:
+        if len(body) < 200:
             continue
+        if len(body) > _MAX_TITLE_INPUT_CHARS:
+            body = body[:_MAX_TITLE_INPUT_CHARS].rsplit("\n\n", 1)[0]
         samples.append(
             SftSample(
                 task="summarize_title",

@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from ..clean import dedup as dedup_mod
-from ..clean.quality import script_profile, text_quality_reason
+from ..clean.quality import is_ocr_noise, script_profile, text_quality_reason
 from ..config import Config
 from ..schema import Document
 from .chunk import Chunk, TokenCounter, chunk_document
@@ -186,12 +186,22 @@ def _sft_record(doc: Document, sample: SftSample, index: int, config: Config) ->
     }
 
 
+#: an acceptable answer length depends on the task: a generated title is a few
+#: words, a continuation is a few paragraphs
+_MIN_OUTPUT_CHARS = {"summarize_title": 4, "qa_definition": 30, "continuation": 200}
+
+
 def _sft_drop_reason(sample: SftSample, config: Config) -> str | None:
-    if not sample.output.strip():
+    output = sample.output.strip()
+    if not output:
         return "empty_output"
     if sample.task in ("table_to_latex", "equation_to_latex"):
         return None  # LaTeX answers are already validated at extraction time
-    return text_quality_reason(sample.output, config.quality)
+    if len(output) < _MIN_OUTPUT_CHARS.get(sample.task, 50):
+        return "output_too_short"
+    if sample.task == "continuation":
+        return text_quality_reason(output, config.quality)
+    return "ocr_noise" if is_ocr_noise(output) else None
 
 
 def _split_for(doc_id: str, val_ratio: float, seed: int) -> str:
