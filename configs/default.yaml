@@ -1,0 +1,115 @@
+# Default pipeline configuration.
+# Every value can be overridden on the command line, e.g.
+#   kdp run --pages 1-20 --dpi 300 --ocr easyocr
+# or by copying this file and passing `--config configs/mine.yaml`.
+
+paths:
+  raw_dir: raw
+  out_dir: out
+
+# ---------------------------------------------------------------- PDF pipeline
+pdf:
+  # page_images  : rasterize each page, then analyse the image (never reads the
+  #                PDF text layer - required for scans and broken-cmap PDFs)
+  # docling_native: let docling open the PDF, still forcing full-page OCR
+  mode: page_images
+  dpi: 200
+  pages: ""          # e.g. "1-20,35"; empty = all pages
+  max_pages: null    # cap per document; useful for smoke tests
+  do_tables: true
+  table_mode: accurate      # fast | accurate (TableFormer)
+  do_formulas: true
+  formula_engine: pix2tex   # pix2tex (CPU friendly) | docling (VLM, needs GPU) | none
+  formula_split_stacked: true
+  formula_strip_equation_number: true
+  keep_page_images: true    # kept for visual QA of the OCR result
+  cache: true               # per-page cache so re-runs resume
+
+ocr:
+  engine: tesseract_cli     # tesseract_cli | easyocr | rapidocr
+  languages: [kor, eng]     # tesseract codes; easyocr uses [ko, en]
+  force_full_page: true
+  min_confidence: 0.0
+
+# ------------------------------------------------------------- Word pipeline
+word:
+  soffice_bin: soffice
+  convert_timeout_s: 240
+  keep_converted: true
+  include_footnotes: true
+  include_headers_footers: false
+
+# ------------------------------------------------------------------- cleaning
+normalize:
+  spacing_engine: kiwi      # kiwi | none  (Korean 띄어쓰기 repair for OCR text)
+  spacing_ocr_only: true
+  unicode_form: NFC
+  strip_control_chars: true
+  join_wrapped_lines: true
+  dehyphenate: true
+  normalize_punctuation: true
+  merge_page_continuations: true
+  infer_headings: true
+  header_footer_page_ratio: 0.5
+  drop_page_numbers: true
+
+quality:
+  min_doc_chars: 200
+  min_block_chars: 10
+  min_hangul_ratio: 0.25
+  max_symbol_ratio: 0.30
+  max_digit_ratio: 0.50
+  max_dup_line_ratio: 0.30
+  max_top_ngram_ratio: 0.20
+  keep_latin_only_blocks: true
+
+dedup:
+  exact: true
+  near: true
+  threshold: 0.85
+  num_perm: 128
+  shingle_size: 5
+  paragraph_level: true
+  min_paragraph_chars_for_dedup: 80
+
+pii:
+  enabled: true
+  mask_email: true
+  mask_phone: true
+  mask_rrn: true
+  mask_card: true
+  mask_url: false
+  placeholder_prefix: "[MASKED_"
+
+# -------------------------------------------------------------------- dataset
+chunk:
+  tokenizer: Qwen/Qwen2.5-7B   # "" to use the character heuristic (offline)
+  max_tokens: 2048
+  min_tokens: 64
+  overlap_tokens: 0
+  keep_latex_atomic: true
+  prepend_heading_path: true
+
+sft:
+  enabled: true
+  tasks:
+    - summarize_title
+    - continuation
+    - table_to_latex
+    - equation_to_latex
+    - qa_definition
+  system_prompt: "당신은 한국어 문서를 정확하게 이해하고 답변하는 유용한 AI 어시스턴트입니다."
+  max_samples_per_doc: 200
+  seed: 20240501
+
+dataset:
+  name: korean-doc-corpus
+  render_templates: [qwen, llama3, deepseek]   # or hf:<model_id>
+  val_ratio: 0.02
+  seed: 20240501
+  write_parquet: true
+  shard_size: 20000
+  license: "unknown - inherit from the source documents"
+
+workers: 1
+log_level: INFO

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# pipeline output (page images, cached OCR, datasets)
+out/
+!out/.gitkeep
