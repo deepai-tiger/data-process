@@ -275,12 +275,20 @@ def _convert_child(element, tag: str, default: str = "") -> str:
 
 
 def _brace(latex: str) -> str:
+    """Always brace macro arguments: ``\\frac ab`` is fragile, ``\\frac{a}{b}`` is not."""
+    latex = latex.strip()
+    return f"{{{latex}}}" if latex else "{}"
+
+
+_SIMPLE_TOKEN_RE = re.compile(r"[A-Za-z0-9]|\\[A-Za-z]+")
+
+
+def _base(latex: str) -> str:
+    """Braces only where they are needed, so bases read as ``x^{2}`` not ``{x}^{2}``."""
     latex = latex.strip()
     if not latex:
         return "{}"
-    if len(latex) == 1 or re.fullmatch(r"\\[A-Za-z]+", latex):
-        return latex if len(latex) == 1 else f"{{{latex}}}"
-    return f"{{{latex}}}"
+    return latex if _SIMPLE_TOKEN_RE.fullmatch(latex) else f"{{{latex}}}"
 
 
 def _handle_text(element) -> str:
@@ -342,9 +350,9 @@ def _handle_fraction(element) -> str:
         type_el = props.find(_m("type"))
         kind = (type_el.get(_m("val")) if type_el is not None else "") or ""
     if kind == "lin":
-        return f"{_brace(num)}/{_brace(den)}"
+        return f"{_base(num)}/{_base(den)}"
     if kind == "skw":
-        return rf"{_brace(num)}\,/\,{_brace(den)}"
+        return rf"{_base(num)}\,/\,{_base(den)}"
     if kind == "noBar":
         return rf"\binom{_brace(num)}{_brace(den)}"
     return rf"\frac{_brace(num)}{_brace(den)}"
@@ -353,27 +361,27 @@ def _handle_fraction(element) -> str:
 def _handle_superscript(element) -> str:
     base = _convert_child(element, "e")
     sup = _convert_child(element, "sup")
-    return f"{_brace(base)}^{_brace(sup)}"
+    return f"{_base(base)}^{_brace(sup)}"
 
 
 def _handle_subscript(element) -> str:
     base = _convert_child(element, "e")
     sub = _convert_child(element, "sub")
-    return f"{_brace(base)}_{_brace(sub)}"
+    return f"{_base(base)}_{_brace(sub)}"
 
 
 def _handle_subsuperscript(element) -> str:
     base = _convert_child(element, "e")
     sub = _convert_child(element, "sub")
     sup = _convert_child(element, "sup")
-    return f"{_brace(base)}_{_brace(sub)}^{_brace(sup)}"
+    return f"{_base(base)}_{_brace(sub)}^{_brace(sup)}"
 
 
 def _handle_prescript(element) -> str:
     base = _convert_child(element, "e")
     sub = _convert_child(element, "sub")
     sup = _convert_child(element, "sup")
-    return f"{{}}_{_brace(sub)}^{_brace(sup)}{_brace(base)}"
+    return f"{{}}_{_brace(sub)}^{_brace(sup)}{_base(base)}"
 
 
 def _handle_radical(element) -> str:
