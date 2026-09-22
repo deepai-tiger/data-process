@@ -32,7 +32,7 @@ from .rasterize import PageImage, page_count, pdf_metadata, rasterize_pdf
 
 logger = logging.getLogger(__name__)
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 
 
 @dataclass
