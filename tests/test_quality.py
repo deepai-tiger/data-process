@@ -137,6 +137,31 @@ def test_a_mostly_empty_grid_is_a_diagram_not_a_table():
     assert table_drop_reason(block) == "sparse_table"
 
 
+def test_a_diagram_is_rejected_even_when_only_its_filled_cells_are_listed():
+    # docling reports the cells it found, not the empty ones, so the four stray
+    # glyphs it read off a technical drawing look like a complete 2x2 table
+    # unless the declared grid is taken into account
+    cells = [
+        {"text": "가", "row": 0, "col": 0},
+        {"text": "나", "row": 2, "col": 3},
+        {"text": "다", "row": 4, "col": 1},
+        {"text": "라", "row": 5, "col": 4},
+    ]
+    block = table("\\begin{tabular}{|c|}\\end{tabular}", cells=cells, num_rows=6, num_cols=5)
+    assert table_drop_reason(block) == "sparse_table"
+
+
+def test_merged_cells_count_towards_the_area_they_cover():
+    cells = [
+        {"text": "항목", "row": 0, "col": 0, "col_span": 2},
+        {"text": "2024년", "row": 1, "col": 0, "row_span": 2},
+        {"text": "12.5", "row": 1, "col": 1},
+        {"text": "13.0", "row": 2, "col": 1},
+    ]
+    block = table("\\begin{tabular}{|c|c|}\\end{tabular}", cells=cells, num_rows=3, num_cols=2)
+    assert table_drop_reason(block) is None
+
+
 def test_a_grid_of_stray_glyphs_is_rejected():
     cells = [{"text": ".", "row": r, "col": c} for r in range(2) for c in range(3)]
     block = table("\\begin{tabular}{|c|}\\end{tabular}", cells=cells, num_rows=2, num_cols=3)

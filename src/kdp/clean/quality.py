@@ -22,6 +22,10 @@ _KANA_RE = re.compile(r"[\u3040-\u30ff]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
 _DIGIT_RE = re.compile(r"[0-9]")
 _LETTERISH_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+#: a cell carries information when it holds a word or a number rather than a
+#: stray glyph: two adjacent letters/digits, or a digit anywhere (numeric cells
+#: are legitimately one character wide)
+_CONTENTFUL_CELL_RE = re.compile(r"[^\W_]{2,}|\d", re.UNICODE)
 _SYMBOL_RE = re.compile(r"[^\w\s\uac00-\ud7a3.,!?;:'\"()\[\]{}\-%/&\u00b7\u2026]", re.UNICODE)
 _TOC_RE = re.compile(r"(?:\.\s*){5,}\d|\.{4,}\s*\d|\u2026{2,}\s*\d")
 _URLISH_RE = re.compile(r"https?://|www\.|@[A-Za-z0-9_]+")
@@ -110,14 +114,26 @@ def table_drop_reason(block: Block) -> str | None:
 
     texts = [str(cell.get("text", "")).strip() for cell in cells]
     filled = [t for t in texts if t]
-    if len(filled) / len(texts) < 0.5:
+    rows = int(block.meta.get("num_rows") or 0)
+    cols = int(block.meta.get("num_cols") or 0)
+    # Recognizers list only the cells they actually found, so the empty ones
+    # have to be inferred from the declared grid. Measured against the listed
+    # cells alone, a diagram whose every detected cell holds one stray glyph
+    # looks perfectly dense.
+    area = max(rows * cols, len(texts))
+    covered = sum(
+        max(1, int(cell.get("row_span", 1) or 1)) * max(1, int(cell.get("col_span", 1) or 1))
+        for cell, text in zip(cells, texts)
+        if text
+    )
+    if covered / area < 0.5:
         return "sparse_table"
-    meaningful = [t for t in filled if (len(t) >= 2 and _LETTERISH_RE.search(t)) or t.isdigit()]
-    if len(meaningful) / len(texts) < 0.4:
+    meaningful = [t for t in filled if _CONTENTFUL_CELL_RE.search(t)]
+    if len(meaningful) / area < 0.4:
         return "noisy_table"
     if is_ocr_noise(" ".join(filled)):
         return "noisy_table"
-    if block.meta.get("num_rows", 0) < 2 or block.meta.get("num_cols", 0) < 2:
+    if rows < 2 or cols < 2:
         return "degenerate_table"
     return None
 
