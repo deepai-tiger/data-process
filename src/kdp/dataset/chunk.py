@@ -18,8 +18,9 @@ from ..schema import LATEX_KINDS, Block, BlockKind, Document, render_block
 
 logger = logging.getLogger(__name__)
 
-#: Korean sentences end with a predicate ending + punctuation
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?。])\s+|(?<=[다요까죠음임함])\.\s+")
+#: Split after sentence-final punctuation. The punctuation is matched as a
+#: lookbehind so that it stays attached to the sentence it closes.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?。])\s+")
 #: rough tokens-per-character for mixed Korean/Latin text, used without a tokenizer
 _CHARS_PER_TOKEN = 1.6
 
@@ -80,6 +81,10 @@ class _Pending:
     pages: set[int] = field(default_factory=set)
     kinds: dict[str, int] = field(default_factory=dict)
     heading_path: list[str] = field(default_factory=list)
+    #: headings this chunk renders itself, so the prefix does not repeat them
+    own_headings: list[str] = field(default_factory=list)
+    #: whether anything other than a heading has been added yet
+    has_body: bool = False
 
     def add(self, text: str, tokens: int, block: Block | None) -> None:
         self.parts.append(text)
@@ -88,10 +93,18 @@ class _Pending:
             if block.page is not None:
                 self.pages.add(block.page)
             self.kinds[block.kind.value] = self.kinds.get(block.kind.value, 0) + 1
+            if block.kind in (BlockKind.TITLE, BlockKind.HEADING):
+                self.own_headings.append(block.text.strip())
+                return
+        self.has_body = True
 
     @property
     def empty(self) -> bool:
         return not self.parts
+
+    def context_path(self) -> list[str]:
+        """Ancestor headings the chunk does not already spell out itself."""
+        return [h for h in self.heading_path if h not in self.own_headings]
 
 
 def chunk_document(doc: Document, cfg: ChunkConfig, counter: TokenCounter) -> list[Chunk]:
@@ -108,8 +121,9 @@ def chunk_document(doc: Document, cfg: ChunkConfig, counter: TokenCounter) -> li
             pending = _Pending(heading_path=[h for _, h in heading_stack])
             return
         prefix = ""
-        if cfg.prepend_heading_path and pending.heading_path:
-            prefix = " > ".join(pending.heading_path) + "\n\n"
+        context = pending.context_path()
+        if cfg.prepend_heading_path and context:
+            prefix = " > ".join(context) + "\n\n"
         text = f"{prefix}{body}".strip()
         chunks.append(
             Chunk(
@@ -140,7 +154,9 @@ def chunk_document(doc: Document, cfg: ChunkConfig, counter: TokenCounter) -> li
                 flush()
             heading_stack = [(lvl, text) for lvl, text in heading_stack if lvl < level]
             heading_stack.append((level, block.text.strip()))
-            if pending.empty:
+            # while the chunk holds nothing but headings, it still belongs to
+            # the section the last of them opens
+            if not pending.has_body:
                 pending.heading_path = [text for _, text in heading_stack]
             pending.add(rendered, counter.count(rendered), block)
             continue
