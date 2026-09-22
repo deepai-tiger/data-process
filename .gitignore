@@ -6,5 +6,4 @@ __pycache__/
 .ruff_cache/
 
 # pipeline output (page images, cached OCR, datasets)
-out/
 !out/.gitkeep
