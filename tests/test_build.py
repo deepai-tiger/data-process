@@ -156,6 +156,30 @@ def test_the_dataset_card_reports_the_pipeline_settings(config):
     assert f"| 사전학습 청크 | {stats.chunks} |" in card
 
 
+def test_the_card_only_points_at_files_that_exist(config, caplog):
+    # a single document cannot fill both sides of the split
+    build_dataset([sample_document()], config)
+    card = (config.paths.dataset_dir / "dataset_card.md").read_text(encoding="utf-8")
+    assert "pretrain/train.jsonl" in card
+    assert "val.jsonl" not in card
+    assert "the val split is empty" in caplog.text
+
+
+def test_the_card_offers_both_splits_once_both_are_written(tmp_path):
+    config = Config.model_validate(
+        {
+            "paths": {"out_dir": str(tmp_path / "out")},
+            "chunk": {"tokenizer": "", "max_tokens": 200, "min_tokens": 20},
+            "dataset": {"write_parquet": False, "val_ratio": 0.5},
+            "dedup": {"exact": False, "near": False},
+        }
+    )
+    stats = build_dataset([sample_document(f"doc{i}") for i in range(12)], config)
+    card = render_dataset_card(stats, config)
+    assert "pretrain/train.jsonl" in card
+    assert '"validation": ' in card and "pretrain/val.jsonl" in card
+
+
 def test_the_card_says_so_when_no_sft_samples_were_produced(config):
     config.sft.enabled = False
     stats = build_dataset([sample_document()], config)

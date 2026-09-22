@@ -225,12 +225,24 @@ def _write_split(
         return
     cfg = config.dataset
     buckets: dict[str, list[dict[str, Any]]] = {"train": [], "val": []}
+    doc_ids = set()
     for record in records:
         doc_id = record["meta"]["doc_id"]
+        doc_ids.add(doc_id)
         buckets[_split_for(doc_id, cfg.val_ratio, cfg.seed)].append(record)
 
     for split, split_records in buckets.items():
         if not split_records:
+            # splitting by document keeps one document's chunks together, so a
+            # handful of documents can land entirely on one side of the ratio
+            logger.warning(
+                "%s: the %s split is empty - val_ratio=%g over %d document(s) put "
+                "everything on the other side",
+                name,
+                split,
+                cfg.val_ratio,
+                len(doc_ids),
+            )
             continue
         result = write_jsonl(split_records, out_dir / f"{split}.jsonl", cfg.shard_size)
         stats.files.append({"dataset": name, "split": split, "format": "jsonl", **result.as_dict()})
@@ -276,6 +288,37 @@ def _render_template(records: Sequence[dict[str, Any]], template: str) -> list[d
 
 def _safe_name(template: str) -> str:
     return template.replace("hf:", "").replace("/", "_")
+
+
+#: `load_dataset` names the evaluation split "validation"
+_SPLIT_LABELS = {"train": "train", "val": "validation"}
+
+
+def _load_example_files(stats: BuildStats, config: Config) -> list[str]:
+    """The `data_files` lines of the usage example, listing only real files.
+
+    A small corpus can leave the validation split empty, and pointing the
+    example at a file that was never written turns the first thing a reader
+    tries into an error.
+    """
+    lines: list[str] = []
+    for split in ("train", "val"):
+        entry = next(
+            (
+                e
+                for e in stats.files
+                if e["dataset"] == "pretrain" and e["format"] == "jsonl" and e["split"] == split
+            ),
+            None,
+        )
+        if entry is None:
+            continue
+        shards = entry.get("shards") or [entry["path"]]
+        # a sharded split is loaded by pattern rather than by listing every file
+        target = shards[0] if len(shards) == 1 else Path(entry["path"]).with_name(f"{split}-*.jsonl")
+        lines.append(f'    "{_SPLIT_LABELS[split]}": "{target}",')
+    default = config.paths.dataset_dir / "pretrain" / "train.jsonl"
+    return lines or [f'    "train": "{default}",']
 
 
 def render_dataset_card(stats: BuildStats, config: Config) -> str:
@@ -331,8 +374,7 @@ def render_dataset_card(stats: BuildStats, config: Config) -> str:
         "from datasets import load_dataset",
         "",
         'ds = load_dataset("json", data_files={',
-        '    "train": "out/dataset/pretrain/train.jsonl",',
-        '    "validation": "out/dataset/pretrain/val.jsonl",',
+        *_load_example_files(stats, config),
         "})",
         "```",
         "",
