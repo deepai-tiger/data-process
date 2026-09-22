@@ -30,6 +30,9 @@ ocr:
   languages: [kor, eng]     # tesseract codes; easyocr uses [ko, en]
   force_full_page: true
   min_confidence: 0.0
+  psm: 6                    # tesseract page segmentation; its default (3) reads
+                            # Korean body text as vertical script and loses most
+                            # of the page. 4 for multi-column, null for default.
 
 # ------------------------------------------------------------- Word pipeline
 word:

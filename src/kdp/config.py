@@ -52,6 +52,12 @@ class OcrConfig(BaseModel):
     force_full_page: bool = True
     #: drop OCR cells below this confidence (engine dependent, 0 disables)
     min_confidence: float = 0.0
+    #: Tesseract page segmentation mode. Its default (3, "fully automatic")
+    #: repeatedly mistakes Korean body text for vertical script and returns a
+    #: column of stray glyphs; 6 ("one uniform block") recovers 1.3-3x more
+    #: Hangul on every sample page here. Raise to 4 for multi-column scans,
+    #: or ``null`` to leave the decision to Tesseract.
+    psm: int | None = 6
 
 
 class PdfConfig(BaseModel):

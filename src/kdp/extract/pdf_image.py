@@ -32,13 +32,21 @@ from .rasterize import PageImage, page_count, pdf_metadata, rasterize_pdf
 
 logger = logging.getLogger(__name__)
 
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 
 
 @dataclass
 class _PageResult:
     blocks: list[Block]
     stats: dict[str, int]
+
+
+@dataclass
+class _EnclosedText:
+    """A text cluster the layout model found inside a picture region."""
+
+    label: Any
+    text: str
 
 
 class PdfLayoutExtractor:
@@ -65,7 +73,9 @@ class PdfLayoutExtractor:
         ocr_cfg = self.cfg.ocr
         mode = OcrMode.FULL_PAGE if ocr_cfg.force_full_page else OcrMode.LAYOUT_REGIONS
         if ocr_cfg.engine == "tesseract_cli":
-            ocr_options: Any = TesseractCliOcrOptions(lang=list(ocr_cfg.languages), mode=mode)
+            ocr_options: Any = TesseractCliOcrOptions(
+                lang=list(ocr_cfg.languages), mode=mode, psm=ocr_cfg.psm
+            )
         elif ocr_cfg.engine == "easyocr":
             ocr_options = EasyOcrOptions(
                 lang=list(ocr_cfg.languages), mode=mode, confidence_threshold=ocr_cfg.min_confidence
@@ -210,13 +220,15 @@ class PdfLayoutExtractor:
         from PIL import Image
 
         started = time.time()
-        docling_doc = self.converter.convert(image.path).document
+        conversion = self.converter.convert(image.path)
+        docling_doc = conversion.document
         with Image.open(image.path) as pil_image:
             page_image = pil_image.convert("L")
             blocks, stats = self._map_items(
                 docling_doc,
                 page_images={n: page_image for n in docling_doc.pages},
                 page_no_map={n: image.page_no for n in docling_doc.pages},
+                enclosed_text=_text_inside_pictures(conversion),
             )
         logger.debug("page %d converted in %.1fs", image.page_no, time.time() - started)
         return _PageResult(blocks, stats)
@@ -226,7 +238,8 @@ class PdfLayoutExtractor:
         from PIL import Image
 
         first, last = images[0].page_no, images[-1].page_no
-        docling_doc = self.converter.convert(path, page_range=(first, last)).document
+        conversion = self.converter.convert(path, page_range=(first, last))
+        docling_doc = conversion.document
         page_images: dict[int, Any] = {}
         for image in images:
             page = docling_doc.pages.get(image.page_no)
@@ -237,6 +250,7 @@ class PdfLayoutExtractor:
                 docling_doc,
                 page_images=page_images,
                 page_no_map={n: n for n in docling_doc.pages},
+                enclosed_text=_text_inside_pictures(conversion),
             )
         )
 
@@ -245,6 +259,7 @@ class PdfLayoutExtractor:
         docling_doc,
         page_images: dict[int, Any],
         page_no_map: dict[int, int],
+        enclosed_text: dict[int, dict[tuple, list[_EnclosedText]]] | None = None,
     ) -> tuple[list[Block], dict[str, int]]:
         from docling_core.types.doc import DocItemLabel
         from docling_core.types.doc.document import PictureItem, TableItem, TextItem
@@ -270,6 +285,26 @@ class PdfLayoutExtractor:
 
             if isinstance(item, PictureItem):
                 stats["pictures_skipped"] = stats.get("pictures_skipped", 0) + 1
+                # The picture itself is discarded by design, but a caption or a
+                # numbered step printed on top of an illustration was OCR'd as
+                # part of it, and that text is content like any other.
+                found = (enclosed_text or {}).get(dl_page, {}).get(
+                    _bbox_key(item, page_height), []
+                )
+                for entry in found:
+                    kind, level = _map_label(entry.label, None)
+                    if kind is None:
+                        continue
+                    blocks.append(
+                        Block(
+                            kind=kind,
+                            text=entry.text,
+                            level=level,
+                            page=page_no,
+                            meta={"label": _label_name(entry.label), "inside_picture": True},
+                        )
+                    )
+                    stats["picture_text_recovered"] = stats.get("picture_text_recovered", 0) + 1
                 continue
             if isinstance(item, TableItem):
                 block = self._table_block(item, docling_doc, page_no)
@@ -415,6 +450,79 @@ def _clean_cell_text(text: str | None) -> str:
     """Strip cell-border artifacts that OCR reads as text (``|``, ``ㅣ``, ``丨``)."""
     cleaned = re.sub(r"[|\uff5c\u4e28\u3163]", " ", text or "")
     return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _label_name(label) -> str:
+    return str(getattr(label, "value", label))
+
+
+def _bbox_key(item, page_height: float) -> tuple:
+    """A picture's identity, shared between its document item and its cluster.
+
+    The two carry the same rectangle in page coordinates, but the document item
+    measures from the bottom of the page and the cluster from the top.
+    """
+    if not getattr(item, "prov", None):
+        return ()
+    bbox = item.prov[0].bbox
+    if page_height:
+        bbox = bbox.to_top_left_origin(page_height=page_height)
+    return (round(bbox.l, 1), round(bbox.t, 1), round(bbox.r, 1), round(bbox.b, 1))
+
+
+#: The OCR also reads the artwork itself, and every misread curve becomes its
+#: own tiny cluster: a stray glyph, a subfigure number, a letter off a diagram
+#: axis. Text worth keeping is a phrase, long enough that misread ink cannot
+#: reach the bar by accident.
+_MIN_ENCLOSED_WORDS = 2
+_MIN_ENCLOSED_CHARS = 10
+_MIN_ENCLOSED_LETTERS = 4
+
+
+def _is_enclosed_prose(text: str) -> bool:
+    words = text.split()
+    letters = len(re.findall(r"[^\W\d_]", text, re.UNICODE))
+    return (
+        len(words) >= _MIN_ENCLOSED_WORDS
+        and len(text.replace(" ", "")) >= _MIN_ENCLOSED_CHARS
+        and letters >= _MIN_ENCLOSED_LETTERS
+    )
+
+
+def _text_inside_pictures(conversion) -> dict[int, dict[tuple, list[_EnclosedText]]]:
+    """Text clusters nested inside picture regions, keyed by page and picture.
+
+    Docling absorbs these into the enclosing picture, so they are absent from
+    the converted document and would be lost along with the illustration -
+    which costs real content in a how-to book, where the numbered steps are
+    printed over the drawing they describe.
+    """
+    from docling_core.types.doc import DocItemLabel
+
+    found: dict[int, dict[tuple, list[_EnclosedText]]] = {}
+    for page in getattr(conversion, "pages", None) or []:
+        layout = getattr(page.predictions, "layout", None)
+        if layout is None:
+            continue
+        for cluster in layout.clusters:
+            if cluster.label != DocItemLabel.PICTURE:
+                continue
+            entries = [
+                _EnclosedText(label=child.label, text=text)
+                for child in cluster.children or ()
+                if _is_enclosed_prose(text := _join_cells(child.cells))
+            ]
+            if entries:
+                bbox = cluster.bbox
+                key = (round(bbox.l, 1), round(bbox.t, 1), round(bbox.r, 1), round(bbox.b, 1))
+                found.setdefault(page.page_no, {})[key] = entries
+    return found
+
+
+def _join_cells(cells: Iterable[Any]) -> str:
+    """Reassemble OCR cells into one string, the way docling joins a cluster."""
+    words = [(cell.text or "").replace("\x02", "-").strip() for cell in cells]
+    return re.sub(r"\s{2,}", " ", " ".join(w for w in words if w)).strip()
 
 
 def _attached_caption_refs(docling_doc) -> set[str]:
