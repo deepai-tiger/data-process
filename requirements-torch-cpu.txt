@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Pinned CPU wheels. Drop this file (and use plain `pip install torch`) when you
+# run the pipeline on a CUDA box.
+torch==2.9.1+cpu
+torchvision==0.24.1+cpu

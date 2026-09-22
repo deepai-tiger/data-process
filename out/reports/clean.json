@@ -1,0 +1,247 @@
+{
+  "documents": {
+    "13": {
+      "spacing": {
+        "engine": "skipped(non-ocr source)",
+        "blocks_processed": 0,
+        "blocks_changed": 0
+      },
+      "normalize": {
+        "blocks_in": 123,
+        "blocks_out": 123,
+        "page_artifacts": 0,
+        "merged_paragraphs": 0,
+        "repeated_lines_removed": 0,
+        "details": {}
+      },
+      "quality": {
+        "kept_blocks": 109,
+        "dropped_blocks": 14,
+        "reasons": {
+          "too_short": 14
+        },
+        "doc_reason": null,
+        "noisy_pages": [],
+        "scores": {
+          "hangul": 0.9825,
+          "cjk": 0.0,
+          "kana": 0.0,
+          "latin": 0.0175,
+          "digit": 0.0632,
+          "symbol": 0.0008,
+          "dup_line_ratio": 0.0,
+          "top_ngram_ratio": 0.0084,
+          "char_repeat_ratio": 0.0,
+          "chars": 7136.0,
+          "prose_chars": 7135.0
+        }
+      },
+      "pii": {
+        "total": 0,
+        "counts": {}
+      },
+      "cross_document_paragraphs_removed": 0,
+      "dropped": false,
+      "drop_reason": null
+    },
+    "no-copy": {
+      "spacing": {
+        "engine": "kiwi",
+        "blocks_processed": 614,
+        "blocks_changed": 611
+      },
+      "normalize": {
+        "blocks_in": 1052,
+        "blocks_out": 1043,
+        "page_artifacts": 99,
+        "merged_paragraphs": 6,
+        "repeated_lines_removed": 3,
+        "details": {}
+      },
+      "quality": {
+        "kept_blocks": 662,
+        "dropped_blocks": 381,
+        "reasons": {
+          "too_short": 268,
+          "ocr_noise": 8,
+          "page_artifact": 99,
+          "toc_table": 5,
+          "digit_ratio": 1
+        },
+        "doc_reason": null,
+        "noisy_pages": [],
+        "scores": {
+          "hangul": 0.9141,
+          "cjk": 0.0,
+          "kana": 0.0,
+          "latin": 0.0858,
+          "digit": 0.0107,
+          "symbol": 0.0218,
+          "dup_line_ratio": 0.0121,
+          "top_ngram_ratio": 0.0175,
+          "char_repeat_ratio": 0.0,
+          "chars": 35583.0,
+          "prose_chars": 35578.0
+        }
+      },
+      "pii": {
+        "total": 0,
+        "counts": {}
+      },
+      "cross_document_paragraphs_removed": 0,
+      "dropped": false,
+      "drop_reason": null
+    },
+    "qt-prog": {
+      "spacing": {
+        "engine": "skipped(non-ocr source)",
+        "blocks_processed": 0,
+        "blocks_changed": 0
+      },
+      "normalize": {
+        "blocks_in": 4491,
+        "blocks_out": 4432,
+        "page_artifacts": 0,
+        "merged_paragraphs": 0,
+        "repeated_lines_removed": 59,
+        "details": {}
+      },
+      "quality": {
+        "kept_blocks": 3845,
+        "dropped_blocks": 587,
+        "reasons": {
+          "too_short": 520,
+          "digit_ratio": 1,
+          "page_artifact": 23,
+          "symbol_ratio": 8,
+          "ocr_noise": 35
+        },
+        "doc_reason": null,
+        "noisy_pages": [],
+        "scores": {
+          "hangul": 0.4477,
+          "cjk": 0.0,
+          "kana": 0.0,
+          "latin": 0.5518,
+          "digit": 0.0105,
+          "symbol": 0.0129,
+          "dup_line_ratio": 0.0879,
+          "top_ngram_ratio": 0.0025,
+          "char_repeat_ratio": 0.0001,
+          "chars": 238042.0,
+          "prose_chars": 237805.0
+        }
+      },
+      "pii": {
+        "total": 0,
+        "counts": {}
+      },
+      "cross_document_paragraphs_removed": 0,
+      "dropped": false,
+      "drop_reason": null
+    },
+    "science1": {
+      "spacing": {
+        "engine": "kiwi",
+        "blocks_processed": 1444,
+        "blocks_changed": 1363
+      },
+      "normalize": {
+        "blocks_in": 1826,
+        "blocks_out": 1775,
+        "page_artifacts": 3,
+        "merged_paragraphs": 48,
+        "repeated_lines_removed": 3,
+        "details": {}
+      },
+      "quality": {
+        "kept_blocks": 1627,
+        "dropped_blocks": 148,
+        "reasons": {
+          "too_short": 128,
+          "page_artifact": 3,
+          "degenerate_table": 5,
+          "toc_table": 4,
+          "noisy_table": 5,
+          "digit_ratio": 2,
+          "ocr_noise": 1
+        },
+        "doc_reason": null,
+        "noisy_pages": [],
+        "scores": {
+          "hangul": 0.8839,
+          "cjk": 0.0,
+          "kana": 0.0,
+          "latin": 0.1159,
+          "digit": 0.0344,
+          "symbol": 0.0078,
+          "dup_line_ratio": 0.0014,
+          "top_ngram_ratio": 0.0301,
+          "char_repeat_ratio": 0.0001,
+          "chars": 196802.0,
+          "prose_chars": 140369.0
+        }
+      },
+      "pii": {
+        "total": 0,
+        "counts": {}
+      },
+      "cross_document_paragraphs_removed": 0,
+      "dropped": false,
+      "drop_reason": null
+    },
+    "story1": {
+      "spacing": {
+        "engine": "kiwi",
+        "blocks_processed": 2498,
+        "blocks_changed": 2331
+      },
+      "normalize": {
+        "blocks_in": 5747,
+        "blocks_out": 5194,
+        "page_artifacts": 652,
+        "merged_paragraphs": 125,
+        "repeated_lines_removed": 428,
+        "details": {}
+      },
+      "quality": {
+        "kept_blocks": 2442,
+        "dropped_blocks": 2752,
+        "reasons": {
+          "too_short": 2073,
+          "page_artifact": 652,
+          "ocr_noise": 17,
+          "toc_table": 3,
+          "low_hangul_ratio": 1,
+          "digit_ratio": 5,
+          "noisy_page": 1
+        },
+        "doc_reason": null,
+        "noisy_pages": [
+          7
+        ],
+        "scores": {
+          "hangul": 0.9406,
+          "cjk": 0.0,
+          "kana": 0.0,
+          "latin": 0.0594,
+          "digit": 0.0114,
+          "symbol": 0.0084,
+          "dup_line_ratio": 0.0054,
+          "top_ngram_ratio": 0.0042,
+          "char_repeat_ratio": 0.0,
+          "chars": 246098.0,
+          "prose_chars": 232969.0
+        }
+      },
+      "pii": {
+        "total": 0,
+        "counts": {}
+      },
+      "cross_document_paragraphs_removed": 0,
+      "dropped": false,
+      "drop_reason": null
+    }
+  },
+  "paragraphs_removed_total": 0
+}

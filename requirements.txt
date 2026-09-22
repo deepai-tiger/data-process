@@ -1,0 +1,40 @@
+# Korean LLM data-process pipeline dependencies.
+#
+# Install CPU-only torch first, otherwise pip pulls the multi-GB CUDA build:
+#   pip install -r requirements-torch-cpu.txt
+#   pip install -r requirements.txt
+#
+# System packages required (see scripts/install_system_deps.sh):
+#   libreoffice-writer  -> legacy .doc conversion
+#   tesseract-ocr, tesseract-ocr-kor, tesseract-ocr-eng -> OCR engine
+#   poppler-utils       -> pdftoppm fallback rasterizer
+
+# --- document understanding ---------------------------------------------------
+docling==2.129.0           # layout analysis, TableFormer, formula enrichment
+docling-core==2.98.0
+pymupdf==1.28.2            # page -> image rasterization (never used for text)
+pillow==11.3.0
+
+# --- Word (.docx / .doc) ------------------------------------------------------
+lxml==6.0.2                # OOXML + OMML (equation) walking
+
+# --- cleaning / dedup ---------------------------------------------------------
+regex==2025.9.1
+datasketch==1.6.5          # MinHash LSH near-duplicate detection
+xxhash==3.6.0
+rapidfuzz==3.14.1
+
+# --- dataset packaging --------------------------------------------------------
+pandas==2.3.3
+pyarrow==22.0.0
+transformers==4.57.1       # tokenizer-accurate length control (optional at runtime)
+
+# --- cli / config -------------------------------------------------------------
+typer==0.19.2
+pyyaml==6.0.3
+pydantic==2.12.3
+tqdm==4.67.1
+rich==14.2.0
+
+# --- dev ----------------------------------------------------------------------
+pytest==8.4.2
