@@ -77,6 +77,47 @@ Tesseract의 기본 분할 모드(psm 3)는 한국어 본문을 **세로쓰기�
 `가공품병진보내기 b_f(t)가 여기에 속한다.`로 시작하는 온전한 문단을 돌려주었습니다.
 그래서 기본값은 6이며, 다단 편집 스캔이라면 4로 낮추십시오.
 
+#### 북조선 문헌용 PP-OCRv5 검증
+
+Mathpix의 실제 인식 모델은 공개·자가호스팅 모델이 아니라 인증이 필요한
+상용 API입니다. Mathpix API는 인쇄된 한글과 페이지 이미지 입력을 지원하지만,
+API 키 없이 같은 엔진을 실행할 수는 없습니다. 북조선 맞춤법을 남한 맞춤법으로
+바꾸지 않으면서 Tesseract보다 나은 인식기를 비교하려면 공식
+`korean_PP-OCRv5_mobile_rec` 모델로 선택한 페이지만 시험할 수 있습니다.
+
+```bash
+pip install -e '.[paddleocr]'
+python scripts/paddleocr_trial.py raw/pdf/no-copy.pdf \
+  --pages 8-22 \
+  --output out/trials/no-copy-pages-8-22.md \
+  --json-output out/trials/no-copy-pages-8-22.json
+```
+
+이 명령도 PDF 텍스트 레이어를 읽지 않고 200 DPI 페이지 이미지에만 OCR을
+적용합니다. 기본적으로 신뢰도 0.8 미만인 줄만 제외하며, 자동 띄어쓰기나 남북
+맞춤법 변환을 적용하지 않으므로 인식 오류를 그대로 검토할 수 있습니다
+(`--min-confidence 0`이면 저신뢰도 줄도 포함). 이 스크립트는 **OCR 비교용**입니다.
+표·수식 LaTeX와 레이아웃 블록이 필요한 정식 산출물은 위 `extract` 경로를
+사용합니다.
+
+선택한 OCR 결과를 먼저 정규화하고 작은 학습 데이터셋으로 검토하려면:
+
+```bash
+python scripts/build_paddleocr_trial_dataset.py \
+  out/trials/no-copy-pages-8-22.paddleocr.json \
+  --output examples/north-korean-dataset-trial
+```
+
+이 단계는 페이지 번호와 삽화 획에서 생긴 짧은 잡음을 제외하고, 좌표와 형태소
+경계를 함께 사용하여 인쇄 줄바꿈을 문단으로 복원하며, OCR의 `<...>` 인용부호를
+원문의 `《...》`로 통일합니다. Kiwi의 전면 띄어쓰기 교정은 북조선 어휘
+(`리용`, `련결`, `되여`)를 잘못 분해할 수 있어 적용하지 않습니다. 인식된 글자를
+남한 맞춤법으로 바꾸거나 임의 교정하지도 않습니다.
+
+검토 결과는 `normalized.md`와 구조화 JSON으로 남고, `dataset/` 아래에는
+사전학습 JSONL 및 Qwen/Llama/DeepSeek용 SFT JSONL이 생성됩니다. 한 문서뿐인
+검토 표본이므로 검증 분할 없이 모두 `train`에 기록하고 Parquet은 생략합니다.
+
 #### 그림 안에 인쇄된 글
 
 레이아웃 모델은 삽화와 겹친 글을 그림 영역에 흡수시켜 버립니다. 실기 서적은
