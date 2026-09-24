@@ -1,0 +1,39 @@
+{
+  "spacing": {
+    "engine": "none",
+    "blocks_processed": 0,
+    "blocks_changed": 0
+  },
+  "normalize": {
+    "blocks_in": 111,
+    "blocks_out": 111,
+    "page_artifacts": 0,
+    "merged_paragraphs": 0,
+    "repeated_lines_removed": 0,
+    "details": {}
+  },
+  "quality": {
+    "kept_blocks": 111,
+    "dropped_blocks": 0,
+    "reasons": {},
+    "doc_reason": null,
+    "noisy_pages": [],
+    "scores": {
+      "hangul": 0.9996,
+      "cjk": 0.0,
+      "kana": 0.0,
+      "latin": 0.0,
+      "digit": 0.0036,
+      "symbol": 0.0274,
+      "dup_line_ratio": 0.0,
+      "top_ngram_ratio": 0.0044,
+      "char_repeat_ratio": 0.0,
+      "chars": 6646.0,
+      "prose_chars": 6645.0
+    }
+  },
+  "pii": {
+    "total": 0,
+    "counts": {}
+  }
+}

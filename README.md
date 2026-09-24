@@ -100,6 +100,24 @@ python scripts/paddleocr_trial.py raw/pdf/no-copy.pdf \
 표·수식 LaTeX와 레이아웃 블록이 필요한 정식 산출물은 위 `extract` 경로를
 사용합니다.
 
+선택한 OCR 결과를 먼저 정규화하고 작은 학습 데이터셋으로 검토하려면:
+
+```bash
+python scripts/build_paddleocr_trial_dataset.py \
+  out/trials/no-copy-pages-8-22.paddleocr.json \
+  --output examples/north-korean-dataset-trial
+```
+
+이 단계는 페이지 번호와 삽화 획에서 생긴 짧은 잡음을 제외하고, 좌표와 형태소
+경계를 함께 사용하여 인쇄 줄바꿈을 문단으로 복원하며, OCR의 `<...>` 인용부호를
+원문의 `《...》`로 통일합니다. Kiwi의 전면 띄어쓰기 교정은 북조선 어휘
+(`리용`, `련결`, `되여`)를 잘못 분해할 수 있어 적용하지 않습니다. 인식된 글자를
+남한 맞춤법으로 바꾸거나 임의 교정하지도 않습니다.
+
+검토 결과는 `normalized.md`와 구조화 JSON으로 남고, `dataset/` 아래에는
+사전학습 JSONL 및 Qwen/Llama/DeepSeek용 SFT JSONL이 생성됩니다. 한 문서뿐인
+검토 표본이므로 검증 분할 없이 모두 `train`에 기록하고 Parquet은 생략합니다.
+
 #### 그림 안에 인쇄된 글
 
 레이아웃 모델은 삽화와 겹친 글을 그림 영역에 흡수시켜 버립니다. 실기 서적은
