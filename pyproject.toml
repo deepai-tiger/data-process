@@ -34,6 +34,8 @@ spacing = ["kiwipiepy>=0.20"]
 formula = ["pix2tex>=0.1.2"]
 # alternative OCR engine
 easyocr = ["easyocr>=1.7"]
+# Korean PP-OCRv5 trial (CPU)
+paddleocr = ["paddleocr>=3.7", "paddlepaddle>=3.3.1"]
 # tokenizer-accurate chunk lengths
 tokenizer = ["transformers>=4.40"]
 dev = ["pytest>=8"]
