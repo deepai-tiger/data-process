@@ -74,7 +74,7 @@ def main() -> None:
         with Image.open(image.path) as page_image:
             crop = page_image.crop(tuple(int(value) for value in region["bbox"]))
             [result] = pipeline.predict(
-                np.asarray(crop),
+                np.asarray(crop.convert("RGB")),
                 prompt_label=region["prompt"],
                 format_block_content=True,
             )

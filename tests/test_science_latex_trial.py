@@ -12,9 +12,11 @@ def test_science_trial_has_every_numbered_equation_once() -> None:
     text = LATEX_REVIEW.read_text(encoding="utf-8")
     equation_numbers = re.findall(r"\\tag\{(1-\d+)\}", text)
     assert equation_numbers == [f"1-{number}" for number in range(1, 21)]
-    assert [text.count(f"### Page {page}") for page in (11, 12, 18, 19, 21, 22, 23, 24, 25)] == [
-        1
-    ] * 9
+    equations_section = text.partition("## Tables")[0]
+    assert [
+        equations_section.count(f"### Page {page}")
+        for page in (11, 12, 18, 19, 21, 22, 23, 24, 25)
+    ] == [1] * 9
 
 
 def test_science_trial_has_three_semantic_tables_and_balanced_latex() -> None:
