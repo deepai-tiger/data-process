@@ -77,6 +77,51 @@ Tesseract의 기본 분할 모드(psm 3)는 한국어 본문을 **세로쓰기�
 `가공품병진보내기 b_f(t)가 여기에 속한다.`로 시작하는 온전한 문단을 돌려주었습니다.
 그래서 기본값은 6이며, 다단 편집 스캔이라면 4로 낮추십시오.
 
+#### 북조선 문헌용 PP-OCRv5 검증
+
+Mathpix의 실제 인식 모델은 공개·자가호스팅 모델이 아니라 인증이 필요한
+상용 API입니다. Mathpix API는 인쇄된 한글과 페이지 이미지 입력을 지원하지만,
+API 키 없이 같은 엔진을 실행할 수는 없습니다. 북조선 맞춤법을 남한 맞춤법으로
+바꾸지 않으면서 Tesseract보다 나은 인식기를 비교하려면 공식
+`korean_PP-OCRv5_mobile_rec` 모델로 선택한 페이지만 시험할 수 있습니다.
+
+```bash
+pip install -e '.[paddleocr]'
+python scripts/paddleocr_trial.py raw/pdf/no-copy.pdf \
+  --pages 8-22 \
+  --output out/trials/no-copy-pages-8-22.md \
+  --json-output out/trials/no-copy-pages-8-22.json
+```
+
+이 명령도 PDF 텍스트 레이어를 읽지 않고 200 DPI 페이지 이미지에만 OCR을
+적용합니다. 기본적으로 신뢰도 0.8 미만인 줄만 제외하며, 자동 띄어쓰기나 남북
+맞춤법 변환을 적용하지 않으므로 인식 오류를 그대로 검토할 수 있습니다
+(`--min-confidence 0`이면 저신뢰도 줄도 포함). 이 스크립트는 **OCR 비교용**입니다.
+표·수식 LaTeX와 레이아웃 블록이 필요한 정식 산출물은 위 `extract` 경로를
+사용합니다.
+
+#### 과학기술 문서의 수식·표 검증
+
+수식이 많은 스캔은 본문 OCR과 수식 인식을 분리하여 검증할 수 있습니다.
+`science1.pdf` 1–30쪽 검증 결과는 다음 두 파일에 있습니다.
+
+- `examples/science1-pages-1-30.ocr.md` — PP-OCRv5 한글 본문 원시 결과
+- `examples/science1-pages-1-30.latex.md` — 페이지 영상과 대조한 표시수식·표 LaTeX
+
+PaddleOCR-VL 1.6으로 수식 영역만 다시 읽으려면:
+
+```bash
+pip install -e '.[paddleocr-vl]'
+python scripts/paddleocr_vl_regions.py \
+  examples/science1-pages-1-30.regions.json \
+  --output out/trials/science1-pages-1-30.vl.json
+```
+
+영역 목록에는 페이지와 좌표가 명시되어 있어 PDF 텍스트층은 사용되지 않습니다.
+검토본은 수식 번호를 `\tag{}`로 보존하고 표를 LaTeX `array`로 기록합니다.
+4쪽의 차례는 표처럼 배치되어 있지만 학습할 자료표가 아니므로 표 목록에서
+제외하였습니다.
+
 #### 그림 안에 인쇄된 글
 
 레이아웃 모델은 삽화와 겹친 글을 그림 영역에 흡수시켜 버립니다. 실기 서적은
