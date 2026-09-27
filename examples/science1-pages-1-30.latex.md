@@ -69,14 +69,14 @@ b_1^p & b_2^p & b_3^p
 \]
 
 \[
-x_w(t)=A_{wp0}A_{wp\nu}(t)\bigl(x_p+b_p\bigr)
+x_w(t)=A_{wp0}A_{wpv}(t)\bigl(x_p+b_p\bigr)
 \tag{1-7}
 \]
 
 ### Page 21
 
 \[
-A_{wp\nu}(t)=
+A_{wpv}(t)=
 \begin{bmatrix}
 \cos\theta_i(t) & 0 & \sin\theta_i(t) \\
 0 & 1 & 0 \\
@@ -86,14 +86,14 @@ A_{wp\nu}(t)=
 \]
 
 \[
-x_q(t)=A_{qc\nu}(t)\bigl(A_{qc0}x_c+r_{c0}\bigr)+b_{qc}(t)
+x_q(t)=A_{qcv}(t)\bigl(A_{qc0}x_c+r_{c0}\bigr)+b_{qc}(t)
 \tag{1-9}
 \]
 
 ### Page 22
 
 \[
-A_{qc\nu}(t)=
+A_{qcv}(t)=
 \begin{bmatrix}
 \cos\psi(t) & 0 & \sin\psi(t) \\
 0 & 1 & 0 \\
@@ -112,7 +112,7 @@ r_1^{c0} & 0 & r_3^{c0}
 
 \[
 \begin{aligned}
-b_{qc}(t)
+b_{qc}(0)
   &=\begin{bmatrix}b_1^{qc}(0)&0&b_3^{qc}(0)\end{bmatrix}^{T},\\
 b_{qc}(t)
   &=\begin{bmatrix}b_1^{qc}(t)&0&b_3^{qc}(t)\end{bmatrix}^{T}
@@ -123,9 +123,9 @@ b_{qc}(t)
 \[
 \begin{aligned}
 x_w(t)
-={}&A_{wp0}A_{wp\nu}(t)
+={}&A_{wp0}A_{wpv}(t)
 \Bigl\{
-A_{qc\nu}(t)\bigl(A_{qc0}x_c+r_{c0}\bigr)\\
+A_{qcv}(t)\bigl(A_{qc0}x_c+r_{c0}\bigr)\\
 &\qquad{}+b_{qc}(t)+b_{pq}(t)+b_p(t)
 \Bigr\}
 \end{aligned}
@@ -136,7 +136,7 @@ A_{qc\nu}(t)\bigl(A_{qc0}x_c+r_{c0}\bigr)\\
 \begin{aligned}
 b'_{pq}
   &=\begin{bmatrix}0&b_2^{pq}(t)+b_2^p(t)&0\end{bmatrix}^{T},\\
-b'(t)
+b'_p(t)
   &=\begin{bmatrix}b_1^p(t)&0&b_3^p(t)\end{bmatrix}^{T}
 \end{aligned}
 \]
@@ -144,20 +144,20 @@ b'(t)
 ### Page 23
 
 \[
-x_w(t)=A_{wp0}A_{wp\nu}(t)
+x_w(t)=A_{wp0}A_{wpv}(t)
 \Bigl\{
-A_{pq}(t)A_{qc\nu}(t)
+A_{pq}(t)A_{qcv}(t)
 \bigl(A_{qc0}x_c+r_{c0}\bigr)
-b_{qc}+b'_p(t)
+{}+b_{qc}+b'_p(t)
 \Bigr\}
 \]
 
 \[
-x_w(t)=A_{wp0}A_{wp\nu}(t)
+x_w(t)=A_{wp0}A_{wpv}(t)
 \Bigl\{
-A_{pq}(t)A_{qc\nu}(t)
+A_{pq}(t)A_{qcv}(t)
 \bigl(A_{qc0}x_c+r_{c0}\bigr)
-b_{qc}(t)+\bar b_p(t)
+{}+b_{qc}(t)+\bar b_p(t)
 \Bigr\}
 \tag{1-14}
 \]
@@ -165,8 +165,8 @@ b_{qc}(t)+\bar b_p(t)
 \[
 \begin{aligned}
 A'_{wp0}&=A_{wp0}A_{qc0},\\
-A'_{wp\nu}(t)
-  &=A_{qc0}^{-1}A_{wp\nu}(t)A_{qc\nu}(t)A_{qc0}
+A'_{wpv}(t)
+  &=A_{qc0}^{-1}A_{wpv}(t)A_{qcv}(t)A_{qc0}
 \end{aligned}
 \tag{1-15}
 \]
@@ -175,22 +175,22 @@ A'_{wp\nu}(t)
 
 \[
 b'_p(t)
-=A_{qc\nu}^{-1}r_{c0}
-+A_{pc0}^{-1}A_{qc\nu}^{-1}(t)
+=A_{qcv}^{-1}r_{c0}
++A_{qc0}^{-1}A_{qcv}^{-1}(t)
 \bigl[b_{qc}(t)+b_p(t)\bigr]
 \tag{1-16}
 \]
 
 \[
 x_w(t)
-=A'_{wp0}A'_{wp\nu}(t)
+=A'_{wp0}A'_{wpv}(t)
 \bigl[x_c+b_{pq}(t)+b'_p(t)\bigr]
 \tag{1-17}
 \]
 
 \[
-A'_{wp0}A'_{wp\nu}(t)b_{pq}(t)
-=A_{wp0}A_{wp\nu}(t)b_{pq}(t)
+A'_{wp0}A'_{wpv}(t)b_{pq}(t)
+=A_{wp0}A_{wpv}(t)b_{pq}(t)
 \tag{1-18}
 \]
 
@@ -200,7 +200,7 @@ b'_{qc}(t)
   &=\begin{bmatrix}b_1^{qc}(t)&0&0\end{bmatrix}^{T},\\
 b'_p(t)
   &=\begin{bmatrix}
-      b_1^p(t)&b_2^p(t)&b_3^p(t)+b_p^{qc}(t)
+      b_1^p(t)&b_2^p(t)&b_3^p(t)+b_3^{qc}(t)
     \end{bmatrix}^{T}
 \end{aligned}
 \tag{1-19}
@@ -209,11 +209,11 @@ b'_p(t)
 ### Page 25
 
 \[
-x_w(t)=A_{wp0}A_{wp\nu}(t)
+x_w(t)=A_{wp0}A_{wpv}(t)
 \Bigl\{
-A_{pq}(t)A_{qc\nu}(t)
+A_{pq}(t)A_{qcv}(t)
 \bigl(A_{pq0}x_c+r_{c0}\bigr)
-b'_{qc}(t)+b'_p(t)
+{}+b'_{qc}(t)+b'_p(t)
 \Bigr\}
 \tag{1-20}
 \]
