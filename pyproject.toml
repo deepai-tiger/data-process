@@ -36,6 +36,12 @@ formula = ["pix2tex>=0.1.2"]
 easyocr = ["easyocr>=1.7"]
 # Korean PP-OCRv5 trial (CPU)
 paddleocr = ["paddleocr>=3.7", "paddlepaddle>=3.3.1"]
+# document VLM for cropped formulas/tables
+paddleocr-vl = [
+  "paddleocr>=3.7",
+  "paddlepaddle>=3.3.1",
+  "paddlex[ocr]>=3.7.2,<3.8",
+]
 # tokenizer-accurate chunk lengths
 tokenizer = ["transformers>=4.40"]
 dev = ["pytest>=8"]

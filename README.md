@@ -100,6 +100,28 @@ python scripts/paddleocr_trial.py raw/pdf/no-copy.pdf \
 표·수식 LaTeX와 레이아웃 블록이 필요한 정식 산출물은 위 `extract` 경로를
 사용합니다.
 
+#### 과학기술 문서의 수식·표 검증
+
+수식이 많은 스캔은 본문 OCR과 수식 인식을 분리하여 검증할 수 있습니다.
+`science1.pdf` 1–30쪽 검증 결과는 다음 두 파일에 있습니다.
+
+- `examples/science1-pages-1-30.ocr.md` — PP-OCRv5 한글 본문 원시 결과
+- `examples/science1-pages-1-30.latex.md` — 페이지 영상과 대조한 표시수식·표 LaTeX
+
+PaddleOCR-VL 1.6으로 수식 영역만 다시 읽으려면:
+
+```bash
+pip install -e '.[paddleocr-vl]'
+python scripts/paddleocr_vl_regions.py \
+  examples/science1-pages-1-30.regions.json \
+  --output out/trials/science1-pages-1-30.vl.json
+```
+
+영역 목록에는 페이지와 좌표가 명시되어 있어 PDF 텍스트층은 사용되지 않습니다.
+검토본은 수식 번호를 `\tag{}`로 보존하고 표를 LaTeX `array`로 기록합니다.
+4쪽의 차례는 표처럼 배치되어 있지만 학습할 자료표가 아니므로 표 목록에서
+제외하였습니다.
+
 #### 그림 안에 인쇄된 글
 
 레이아웃 모델은 삽화와 겹친 글을 그림 영역에 흡수시켜 버립니다. 실기 서적은
